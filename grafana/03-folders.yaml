@@ -1,0 +1,105 @@
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: 00-executive
+  namespace: grafana
+  labels:
+    app.kubernetes.io/part-of: observability
+spec:
+  instanceSelector:
+    matchLabels:
+    dashboards: "openshift-metrics"
+  title: 00 Executive
+  uid: 00-executive
+  resyncPeriod: 10m
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: 01-openshift-platform
+  namespace: grafana
+  labels:
+    app.kubernetes.io/part-of: observability
+spec:
+  instanceSelector:
+    matchLabels:
+    dashboards: "openshift-metrics"
+  title: 01 OpenShift Platform
+  uid: 01-openshift-platform
+  resyncPeriod: 10m
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: 02-kubernetes-workloads
+  namespace: grafana
+  labels:
+    app.kubernetes.io/part-of: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "openshift-metrics"
+  title: 02 Kubernetes Workloads
+  uid: 02-kubernetes-workloads
+  resyncPeriod: 10m
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: 03-linux-and-nodes
+  namespace: grafana
+  labels:
+    app.kubernetes.io/part-of: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "openshift-metrics"
+  title: 03 Linux and Nodes
+  uid: 03-linux-and-nodes
+  resyncPeriod: 10m
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: 04-storage
+  namespace: grafana
+  labels:
+    app.kubernetes.io/part-of: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "openshift-metrics"
+  title: 04 Storage
+  uid: 04-storage
+  resyncPeriod: 10m
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: 05-network-and-ingress
+  namespace: grafana
+  labels:
+    app.kubernetes.io/part-of: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "openshift-metrics"
+  title: 05 Network and Ingress
+  uid: 05-network-and-ingress
+  resyncPeriod: 10m
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: 06-applications-reliability
+  namespace: grafana
+  labels:
+    app.kubernetes.io/part-of: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "openshift-metrics"
+  title: 06 Applications and Reliability
+  uid: 06-applications-reliability
+  resyncPeriod: 10m

@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: grafana
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: observability
+    # Optional: Dictates that network traffic or multi-tenant policies 
+    # isolate this namespace from generic workloads
+    kubernetes.io/metadata.name: grafana
