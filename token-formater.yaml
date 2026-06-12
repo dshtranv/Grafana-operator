@@ -1,0 +1,55 @@
+---
+# Local RBAC role to allow the token-formatter job to manage secrets
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: token-formatter-role
+  namespace: grafana
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "create", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: token-formatter-rb
+  namespace: grafana
+subjects:
+- kind: ServiceAccount
+  name: grafana-sa
+  namespace: grafana
+roleRef:
+  kind: Role
+  name: token-formatter-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Automated Job to safely format the token with 'Bearer '
+# Corrected Job: Pulls from the static secret, NOT the pod filesystem
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tokern-formatter
+  namespace: grafana
+spec:
+  template:
+    spec:
+      serviceAccountName: grafana-sa
+      restartPolicy: OnFailure
+      containers:
+      - name: formatter
+        image: quay.io/openshift/origin-cli:latest
+        env:
+          - name: SA_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: grafana-sa-token-secret
+                key: token
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "Formatting long-lived service account token..."
+          oc create secret generic grafana-processed-token \
+            --from-literal=header="Bearer ${SA_TOKEN}" \
+            -n grafana --dry-run=client -o yaml | oc apply -f -

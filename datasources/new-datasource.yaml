@@ -13,9 +13,7 @@ spec:
     access: proxy
     url: 'https://thanos-querier.openshift-monitoring.svc.cluster.local:9091'
     jsonData:
-      httpHeaderName1: 'Authorization'
       timeInterval: 15s
       tlsSkipVerify: true
-    secureJsonData:
-      httpHeaderValue1: 'Bearer <token>'
-  resyncPeriod: 10m
+      httpMethod: POST
+    bearerTokenFile: '/var/run/secrets/kubernetes.io/serviceaccount/token'

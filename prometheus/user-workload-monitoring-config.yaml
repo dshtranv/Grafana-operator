@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-workload-monitoring-config
+  namespace: openshift-user-workload-monitoring
+data:
+  config.yaml: |
+    prometheus:
+      retention: 400d
+      retentionSize: 45GB
+      volumeClaimTemplate:
+        spec:
+          storageClassName: <storageclass-name>
+          volumeMode: Filesystem
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 50Ti
+
+    thanosRuler:
+      retention: 400d
+      volumeClaimTemplate:
+        spec:
+          storageClassName: <storageclass-name>
+          volumeMode: Filesystem
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 30Gi
+
+    alertmanager:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: <storageclass-name>
+          volumeMode: Filesystem
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 20Gi

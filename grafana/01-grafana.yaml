@@ -23,6 +23,10 @@ spec:
     security:
       disable_initial_admin_creation: "false"
   deployment:
+    spec:
+      template:
+        spec:
+          automountServiceAccountToken: true
     secret:
       name: grafana-admin-credentials
   route:
