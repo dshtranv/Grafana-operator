@@ -1,17 +1,32 @@
 # Grafana-operator
 
+Grafana Operator is a Kubernetes operator built to help you manage your Grafana instances and its resources in and outside of Kubernetes.
+
+Whether you’re running one Grafana instance or many, the Grafana Operator simplifies the processes of installing, configuring, and maintaining Grafana and its resources. Additionally, it’s perfect for those who prefer to manage resources using infrastructure as code or using GitOps workflows through tools like ArgoCD and Flux CD.
+
+[What is Grafana Operator](https://grafana.github.io/grafana-operator/docs/)
+
 ## Configure PVC-backed Prometheus
 
 Grafana queries Thanos Querier, and Thanos Querier reads the OpenShift monitoring Prometheus data. After the Prometheus retention is extended, Grafana can query the longer history through the same datasource.
 
 Red Hat’s supported path is to configure `cluster-monitoring-config` in `openshift-monitoring`. Persistent storage is recommended for production monitoring, and Red Hat documents `prometheusK8s.volumeClaimTemplate`, `retention`, and `retentionSize` as supported settings.
 
+[Monitoring stack for Red Hat OpenShift 4.20](https://docs.redhat.com/en/documentation/monitoring_stack_for_red_hat_openshift/4.20/pdf/configuring_core_platform_monitoring/Monitoring_stack_for_Red_Hat_OpenShift-4.20-Configuring_core_platform_monitoring-en-US.pdf)
+
+---
+
 > [!WARNING]
 > When you add or change PVC configuration for OpenShift monitoring, the affected StatefulSet is recreated and there is a temporary service outage for that monitoring component. Red Hat explicitly documents this behavior.
+
+---
+
 > [!NOTE]
 > Existing short-lived metrics are not backfilled.
 > If Prometheus currently uses `emptyDir`, switching to PVC starts durable retention from the moment the new pods come up.
-> Each Prometheus replica stores its own copy, so 50Gi with 2 replicas means roughly 100Gi total backend storage.
+> Each Prometheus replica stores its own copy, so `50Gi` with 2 replicas means roughly `100Gi` total backend storage.
+
+---
 
 ### Check available StorageClasses
 
@@ -19,13 +34,15 @@ Check whether PVC expansion is supported:
 
 ```bash
 oc get storageclass -o custom-columns=NAME:.metadata.name,PROVISIONER:.provisioner,EXPANSION:.allowVolumeExpansion,MODE:.volumeBindingMode
+```
 
+```bash
 NAME                       PROVISIONER                  EXPANSION   MODE
 <storageclass-name>       <supported-csi-driver>        true        WaitForFirstConsumer
 ```
 
 > [!NOTE]
-> If there is already existing content under data.config.yaml, merge the new settings into the existing config. Do not blindly overwrite previous custom monitoring settings.
+> If there is already existing content under `data.config.yaml`, merge the new settings into the existing config. Do not blindly overwrite previous custom monitoring settings.
 
 ### Backup existing monitoring configuration
 
@@ -34,6 +51,8 @@ Check if a config already exists:
 ```bash
 oc -n openshift-monitoring get configmap cluster-monitoring-config -o yaml
 ```
+
+Save the config:
 
 ```bash
 # Cluster workload
@@ -155,13 +174,15 @@ grep -R "storageClassName" .
 
 ```bash
 oc apply -f prometheus/*.yaml --dry-run=server
+```
 
+```bash
 configmap/cluster-monitoring-config configured (server dry run)
 configmap/user-workload-monitoring-config configured (server dry run)
 ```
 
 > [!NOTE]
-> If the namespace openshift-user-workload-monitoring does not exist yet, first apply only the core config with `enableUserWorkload: true`, then wait for the namespace and pods to appear.
+> If the namespace `openshift-user-workload-monitoring` does not exist yet, first apply only the core config with `enableUserWorkload: true`, then wait for the namespace and pods to appear.
 
 ### Apply the configuration
 
@@ -234,10 +255,99 @@ oc -n grafana run thanos-test \
 OK
 ```
 
+### Rollback
+
+Revert the ConfigMap to the previous backup:
+
+```bash
+oc apply -f monitoring-backup-YYYY-MM-DD/cluster-monitoring-config.yaml
+```
+
+If you also changed user workload monitoring:
+
+```bash
+oc apply -f monitoring-backup-YYYY-MM-DD/user-workload-monitoring-config.yaml
+```
+
+Then monitor:
+
+```bash
+watch -n 5 'oc -n openshift-monitoring get pods,pvc,statefulset'
+```
+
+>[!WARNING]
+> Do not delete PVCs unless you explicitly want to delete retained metrics data.
+
+### Sizing recommendation
+
+For **production**, do not finalize `50Gi` blindly. Start with observed ingest rate.
+
+Run after Prometheus is stable:
+
+```bash
+oc -n openshift-monitoring exec prometheus-k8s-0 -c prometheus -- \
+  du -sh /prometheus
+```
+
+Check active series:
+
+```bash
+oc -n openshift-monitoring exec prometheus-k8s-0 -c prometheus -- \
+  wget -qO- http://localhost:9090/api/v1/query?query=prometheus_tsdb_head_series
+```
+
+Rule of thumb:
+
+```text
+Required storage per replica = current daily growth × retention days × 1.2 safety factor
+```
+
+Example:
+
+```text
+5 Gi/day × 400 days × 1.2 = 2400 Gi
+```
+
+So you would use at least:
+
+```yaml
+storage: 3Ti
+retentionSize: 2600GB
+```
+
+For strict enterprise long-term observability, especially if you need more than one year, many clusters, or compliance/reporting retention, **prefer remote write to an external long-term metrics backend** in addition to local PVC retention. OpenShift 4.20 also supports remote write configuration under `prometheusK8s.remoteWrite`.
+
 ## Install Grafana Operator
+
+Option 1 (Cluster Wide):
+
+Operator is installed globally and can watch/manage CRs across namespaces
 
 ```bash
 oc apply -k operator/
+```
+
+Approve the InstallPlan:
+
+```bash
+oc -n openshift-operators get installplan
+
+NAME                 CSV                         APPROVAL   APPROVED
+<installplan_name>   grafana-operator.v5.x.x     Manual     false
+```
+
+```bash
+oc -n openshift-operators patch installplan <installplan_name> \
+  --type merge \
+  -p '{"spec":{"approved":true}}'
+```
+
+Option 2 (Namespaced)
+
+Operator is scoped to that namespace only
+
+```bash
+oc apply -k operator/namespaced/
 ```
 
 Approve the InstallPlan:
@@ -257,23 +367,27 @@ oc -n grafana patch installplan <installplan_name> \
 
 ## Deploy the grafana resources
 
+> [!WARNING]
+> When using kubectl apply -k for Kustomize, you often need a second apply because of resource ordering and CRD race conditions.
+> ArgoCD avoids this by building dependency graphs, whereas CLI Kustomize applies linearly in alphabetical order without respecting resource creation readiness.
+
 ```bash
 oc apply -k grafana/
 ```
 
-Get the token:
+Get the service account token:
 
 ```bash
 oc get secret grafana-sa-token-secret -n grafana -o jsonpath='{.data.token}' | base64 --decode
 ```
 
-Paste the token to datasource.yaml:
+Paste the token to `datasource.yaml`:
 
 ```yaml
       httpHeaderValue1: 'Bearer <token>'
 ```
 
-## Apply datasource.yaml
+## Apply Datasource
 
 ```bash
 oc apply -f datasources/datasource.yaml
@@ -281,4 +395,5 @@ oc apply -f datasources/datasource.yaml
 
 ## References
 
-[Monitoring stack for Red Hat OpenShift 4.20](https://docs.redhat.com/en/documentation/monitoring_stack_for_red_hat_openshift/4.20/pdf/configuring_core_platform_monitoring/Monitoring_stack_for_Red_Hat_OpenShift-4.20-Configuring_core_platform_monitoring-en-US.pdf)
+- [What is Grafana Operator](https://grafana.github.io/grafana-operator/docs/)
+- [Monitoring stack for Red Hat OpenShift 4.20](https://docs.redhat.com/en/documentation/monitoring_stack_for_red_hat_openshift/4.20/pdf/configuring_core_platform_monitoring/Monitoring_stack_for_Red_Hat_OpenShift-4.20-Configuring_core_platform_monitoring-en-US.pdf)

@@ -6,6 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: grafana
     app.kubernetes.io/part-of: observability
+    openshift.io/cluster-monitoring: "true"
     # Optional: Dictates that network traffic or multi-tenant policies 
     # isolate this namespace from generic workloads
     kubernetes.io/metadata.name: grafana
