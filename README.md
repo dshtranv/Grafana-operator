@@ -393,6 +393,29 @@ Paste the token to `datasource.yaml`:
 oc apply -f datasources/datasource.yaml
 ```
 
+## Access Grafana
+
+If Grafana was deployed by the Grafana Operator, get the route:
+
+```bash
+oc get route -n openshift-operators
+```
+
+Or, if the Grafana namespace is different:
+
+```bash
+oc get route -A | grep -i grafana
+```
+
+Get the Grafana URL:
+
+```bash
+GRAFANA_HOST=$(oc -n grafana get route -o jsonpath='{.items[0].spec.host}')
+echo "https://${GRAFANA_HOST}"
+```
+
+Open the URL in a browser.
+
 ## References
 
 - [What is Grafana Operator](https://grafana.github.io/grafana-operator/docs/)
